@@ -63,3 +63,6 @@ void main()
 	auto j = b3[0]; //returns int, because it calls operator[] thread_write.
 
 }
+
+
+

@@ -1,0 +1,157 @@
+\section{The Proposal}
+% \subsection{Exceprts from the Standard (N4296)}
+% \subsubesction{CV-Qualifiers (3.9.3)}
+% The working draft of the standard (N4296) states the following about cv-qualifiers (3.9.3 CV-qualifiers).
+% \begin{enumerate}
+%   \item The cv-qualified or cv-unqualified versions of a type are distinct types; however, they shall have the same representation and alignment requirements.
+%   \item A compound type (3.9.2) is not cv-qualified by the cv-qualifiers (if any) of the types from which it is compounded. Any cv-qualifiers applied to an array type affect the array element type, not the array type.
+%   \item[4] There is a partial ordering on cv-qualifiers, so that a type can be said to be more cv-qualified than another. Table 8 shows the relations that constitute this ordering.
+% \end{enumerate}
+% \begin{table}[h]
+% \centering
+% \caption{Relations on const and volatile}
+% \begin{tabular}{l l}
+% \textit{no cv-qualifier} &$<$ \lstinline {const}\\
+% \textit{no cv-qualifier} &$<$ \lstinline {volatile}\\
+% \textit{no cv-qualifier} & $<$ \lstinline {const volatile}\\
+% \lstinline{const} 		 & $<$ \lstinline {const volatile}\\
+% \lstinline{volatile} 	 & $<$ \lstinline {const volatile}\\
+% \end{tabular}
+% \end{table}
+% \subsubsection{Fundamental types (3.9.1)}
+% \begin{enumerate}
+% \item  Characters can be explicitly declared unsigned or signed. Plain char, signed char, and unsigned char are three distinct types, collectively called narrow
+% character types. A char, a signed char, and an unsigned char occupy the same amount of storage and have the same alignment requirements (3.11); that is, they have the same object representation.
+% \end{enumerate}
+%\subsubsection{Static cast (5.2.9)}
+%\subsubsection {Const cast (5.2.11)}
+\subsection*{Abstract}
+This section will present a short version of the proposal, more example will follow in later sections. There are a view parts which are optional, which means, that those are not necessary to implement the core, though useful.
+\subsection{Core Proposal} \label{prop:core}
+It shall be possible to declare custom qualifiers, which behave similar to the existing cv-qualifiers. The difference is, that the custom qualifiers have to direct function\footnote{A complier may provide an extension here} as \lstinline {const} would have.\\
+A so defined qualifier will create additional types, as do the cv-qualifiers. This will enhance the possibilities of type-safety.\\
+The relations of the user-defined qualifiers shall correspond to the one of the cv-qualifiers. Also, a qualifier may be added implicitly at any time.
+\subsection{Fundamental types}
+If a primitve type is used with a custom qualifier, it may be declared, because a qualifier may be added anytime. It does howerver not have any functionality. The newly created type is implicit, so it can be overwritten by an explicit declaration.\\ 
+For example, if one declares
+\begin{lstlisting}
+qualifier q;
+q int i = 42;
+\end{lstlisting}  
+i can be allocated and constructed, since this is the addition of a qualifier, which is always possible. However, no operation can be performed with i, since none is declared. If the qualifier q is void for the type int, one may add an explicit definition, by using a type alias.
+\begin{lstlisting}[firstnumber=3]
+using q int = int;
+\end{lstlisting}
+This way q int is the same as int and it fulfills the requirements given for the qualification. So q int can be handled like a normal int.
+\subsection{Compound types}
+For compound types the rules are the same as given for cv-qualifiers. That is methods can be declared for a qualified this-pointer.
+\begin{lstlisting}[firstnumber=4]
+struct A
+{
+	void method() q {};
+};
+\end{lstlisting}
+\subsection{Extended type alias (optional)}
+The already proposed type alias could be extendend, though that would require more compiler functionality, since it has to assert the right aligment. If for example an atomic type has the same alignment as the type, the following would be possible:
+\begin{lstlisting}
+qualifier atomic;
+template<typename T>
+using atomic T = std::atomic<T>;
+\end{lstlisting}
+\subection{Qualifier alias}
+To make the qualifiers more powerful, two things would be possible: inheritance and compound. If not added explicitly they would however be possible via type alias. The using would allow shorter syntax for several qualifiers and could be done as a workaround via type alias as shown below.  
+\begin{lstlisting}
+qualifier cv;
+template<typename T>
+cv T = const volatile T;
+\end{lstlisting}
+If given the right syntax, this could be stated in a much shorter way:
+\begin{lstlisting}
+using qualifier cv = const volatile.
+\end{lstlisting}
+Thereby the qualifier cv becomes an alias here, so the compiler can remove it, what would require more work than the alias version.
+\subsection{Qualifier inheritance}
+Another possible feature would be a primitive form of inheritance. Let's consider one defines two qualifiers for thread safety, i.e. read and write safety. The design of the libraries would then imply, that all write-safe actions are also read-safe. So by using the alias one could write:
+\begin{lstlisting}
+qualifier thread_read, thread_write; 
+\end{lstlisting} 
+% \subsection{Proposal}
+% The proposal is, to allow users to define own qualifiers. This is useful when different methods shall be used in the same program, but chosen at compile time. The primitive datatypes shall be defined by the user and compound datatypes shall be created automaticly if no definition is given, by applying the qualifier to each member.
+% q u a l i f i e r m y q u a l i f i e r ;
+% v o id s o me f u n c t io n (T) ;
+% // s e l e c t e d by t he r u l e s f o r o v e r lo a d in g
+% v o id s o me f u n c t io n ( m y q u a l i f i e r T) ;
+% c l a s s C
+% f
+% v o id some method ( . . . ) m y q u a l i f i e r ;
+% v o id some method ( . . . ) ;
+% g
+% C c ; c . some method ( . . . ) ; // c a l l s u n q u a l i f i e d
+% m y q u a l i f i e r c2 ; c2 . some method ( . . . ) ; // c a l l s q u a l i f i e d
+% \subsection{Defining qualified fundamental types}
+% As for now it is quite clear how a qualified class could be implemented, it has not been
+% explained how a qualified fundamental type could be defined.
+% As for the standard, the constraints are two:
+% • T and qualified T must have the same size and data alignment
+% • T∗ must be implicit convertible to qualified T∗
+% That is, qualified fundamental types cannot be freely defined directly, since the alignment
+% could be another one. Since C++11 introduced an alignof operator this can be assured using
+% a static assert . However the main problem is the conversion of the pointers, i.e. getting a
+% 6
+% reference.
+% For example:
+% q u a l i f i e d m y q u a l i f i e r ;
+% c l a s s s o me s t r u c t
+% f
+% i n t i ;
+% p u b lic :
+% // some methods
+% g ;
+% u s in g m y q u a l i f i e r i n t = s o me s t r u c t ;
+% Now for my qualified type I would need to have an implicit conversion from int to some struct.
+% The solution to this problem would to allow the cast operator be declared outside of a class.
+% If T1 shall be implicit convertible to T2, this would look like:
+% o p e r a t o r T2( T1∗ c o n s t ) f . . . g ;
+% o p e r a t o r T2( T1&) f . . . g ;
+% This could then be used for the needed pointer conversions, i.e.:
+% o p e r a t o r T2∗ c o n s t ( T1 ∗ c o n s t r h s )
+% f
+% r e t u r n r e i n t e r p r e t c a s t < T2 ∗ co ns t >( r h s ) ;
+% g
+% Now for a compund type this conversion shall be implicitly defined, so that only the primitives
+% need to have this cast operators. As an example we consider code which may or may not
+% need to be threadsafe. The conversion from Integral ∗ to atomic<Integral>∗ are assumed to exist
+% as well as those two having the same alignment.
+% q u a l i f i e r t h r e a d s a f e ;
+% / ∗ a l l i n t e g r a l s must be atomic f o r
+% b e e in g t h r e a d s a f e e x c e p t cha r and b o o l ∗ /
+% u s in g t h r e a d s a f e I n t e g r a l = atomic <I n t e g r a l >;
+% u s in g t h r e a d s a f e cha r = cha r ; // a l s o f o r uns ig ned
+% u s in g t h r e a d s a f e b o o l = b o o l ;
+% Now that would work by adding the operator atomic<Integral>∗ const (Integral∗ const).
+% 7
+% \subsection{Deleted types}	
+% At this point it is not defined, what happes if a qualifier is given and there is no specialisation
+% of the qualified version.
+% If the qualified conversion is defined, there needs to be a conversion function, so that yields
+% an error. But if I define a new qualfier, there is no need to define a qualified version for each
+% type, because maybe it doesn't exist. That is, there needs to be a void type with a specific
+% size, which just does nothing. This types needs to be able to be instanciated, since it may
+% be interesting of using function overloading depending on whether the type exists or not.
+% My proposal is using delete as an additional type qualifier. That is, if a qualifier for type T
+% is not defined, the compiler implicitly declares this special type like this:
+% q u a l i f i e r q u a l i f i e d ;
+% u s in g q u a l i f i e d T = d e l e t e q u a l i f i e d T;
+% The other qualifiers must be used, since else this would be ambigous:
+% q u a l i f i e r q1 , q2 ;
+% u s in g q1 T = d e l e t e q1 T;
+% u s in g q2 T = d e l e t e q2 T;
+% Now one would also construct a type trait for this purpose:
+% t emplat e <typename T, typename T2 = d e l e t e T >
+% u s in g i s d e l e t e d = f a l s e t y p e ;
+% t emplat e <typename T >
+% u s in g i s d e l e t e d < T,T > = t r u e t y p e ;
+% The only thing a deleted type can be used for is to take a pointer to it and get a reference.
+% As a note: I would have to called them virtual types because they exist in way, but this
+% would render an ambiguous declaration when returnign a pointer from a virtual function
+% (though no one should do that).

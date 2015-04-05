@@ -1,0 +1,62 @@
+\section{Motivation}
+\subsection{Explanation}
+The motivation is the need for qualified behaviour. One intuitive example is threadsafety by defining the keyword thread\_safe manually. This could also be added to the language, but since there isn't a general solution for threadsafety a user defined keyword would be the only possibility. There are also other uses for this behaviour. It may for example be possible for an embedded system to distinguish between code that can be called from an interrupt an other
+which cannot. By defining qualiers this would be possible without writing to distinguished classes. That is, a class can behave differently depending on the context without the need to implement it twice.
+\subsection{Introductory Example}
+Now for an example, let's say I want to construct a quite simple fifo-class, which can be used
+to inter-thread communication but. It should also be able to be used in just one thread.
+\begin{lstlisting}
+// declare a qualifier
+qualifier inter_thread;
+// assume array to be threadsafe
+template <typename T, size_t size >
+using inter_thread array<T, size> = array<T, size>;
+template <typename T, size_t data_size >
+class stack
+{
+	array < T, data_size> data ;
+	size_t current ;
+	mutex mtx ;
+public :
+	size_t size () inter_thread {return current;}
+	void operator <<(T & rhs )
+	{
+		if (current + 1 == data.size()) throw fifo_full() ;
+		swap(data[current], rhs);
+	}
+	void operator >>(T & rhs )
+	{
+		if (current.load() == 0) throw fifo_empty();
+		current--;
+		swap(rhs, data[current]);
+	}
+	void operator <<(T & rhs ) inter_thread
+	{
+		lockguard <mutex> lock ( mtx ) ;
+		if (current + 1 == data.size()) throw fifo_full() ;
+		swap(data[current], rhs);
+	}
+	void operator >>(T & rhs ) inter_thread
+	{
+		lockguard <mutex> lock ( mtx ) ;
+		if (current == 0) throw fifo_empty();
+		current--;
+		swap(rhs, data[current]);
+	}
+}
+\end{lstlisting}
+What this now allows is to use the same class in two different ways, without changing the class. One can use the object in the none-threadsafe way or in the threadsafe way, without recreating is. For example:
+\begin{lstlisting}[firstnumber=39]
+void func(interthread stack<int, 10> & data) {...}//do something with the buffer
+void main()
+{
+	stack<int, 10> st;
+	st << 10; //none threadsafe version
+	inter_thread s & = st;
+	s << 10; //uses the threadsafe version
+	
+	std::thread thr{&func, st}; 
+	thr.join();
+}
+\end{lstlisting}
+That way, the thread function will always use the thread-safe version.
