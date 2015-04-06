@@ -1,0 +1,42 @@
+\section{Analysis}
+\subsection{Type Complexity}
+A problem about custom type qualifiers is the complexity. Each type increases it by power of two. That is, N qualifiers result in $2^N$ types per declaration. 
+Since there are five (if one includes signed and unsigned) qualifiers, the number of types per declaration is $2^{N+5}$. However one has to assume, that only a minority of those types is really used. Additionally the compiler can handle those types very similar, since the alignment is the same. That is, only the function overload selection works differently.
+\subsection{Namespace Problems}
+As mentioned before, the fact, that qualifiers are declared in a namespace can yield some problems. Consider the following example:
+\begin{lstlisting}
+namespace n1
+{
+	qualifier q;
+	using q int = int;
+}
+
+
+void func()
+{
+	n1::q int i; //would yield n1::(q int), i.e. int
+	using n1::q;
+	
+	q int j; //would yield (n1::q) int, i.e. an undefined version qualified of int 
+	
+	using n1::q int;
+	
+	q int k; //now yields int again.
+}
+\end{lstlisting}
+This seems strange, but is the logical consequence of the scope rules. It get's more complicated if one does the following:
+\begin{lstlisting}
+namespace n1 {qualifier q;}
+namespace n2 {using n1::q int = int;}
+
+void func()
+{
+	n1::q int; //does yield an undefined int.
+	n2::q int; //undefined type, yields an error
+	n1::q n2::int; //invalid syntax
+	//i.e: there is no way, to get a hold off the type alias
+} 
+\end{lstlisting}
+This is also necessary, but I would argue, that there is no way to solve the problem. But since there does not seem to be the necessity of that sort of use (one could simply create a type alias in n2), it doesn't seem to be a real problem. It would probably be rather exploited to hide types.
+\subsection{Comparison with current solutions}
+\href{http://www.artima.com/cppsource/codefeatures.html}{Enforcing Code Feature Requirements in C++}

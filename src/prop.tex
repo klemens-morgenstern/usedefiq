@@ -29,6 +29,7 @@
 This section will present a short version of the proposal, more example will follow in later sections. There are a view parts which are optional, which means, that those are not necessary to implement the core, though useful.
 \subsection{Core Proposal} \label{prop:core}
 It shall be possible to declare custom qualifiers, which behave similar to the existing cv-qualifiers. The difference is, that the custom qualifiers have to direct function\footnote{A complier may provide an extension here} as \lstinline {const} would have.\\
+A cv-qualifier declares a distinct type, which needs to have the same size and alignmend as the unqualified one\footnote{N4296, 3.9.3}; the same applies to the custom qualifiers.
 A so defined qualifier will create additional types, as do the cv-qualifiers. This will enhance the possibilities of type-safety.\\
 The relations of the user-defined qualifiers shall correspond to the one of the cv-qualifiers. Also, a qualifier may be added implicitly at any time.
 \subsection{Fundamental types}
@@ -51,15 +52,54 @@ struct A
 	void method() q {};
 };
 \end{lstlisting}
-\subsection{Extended type alias (optional)}
+\subsection{Qualifier cast}
+As for cv-qualifiers, the custom qualifier shall only be removeable by \lstinline {const_cast}. It may however be useful to add an alias for this operator, that would be named \lstinline {qualifier_cast}.
+\subsection{Scoped qualifier}
+The qualifiers shall be declared inside a namespace and importable with the \lstinline {using} syntax. A declaration inside a class shall not be possible. \subsection{Extended type alias (optional)}
 The already proposed type alias could be extendend, though that would require more compiler functionality, since it has to assert the right aligment. If for example an atomic type has the same alignment as the type, the following would be possible:
 \begin{lstlisting}
 qualifier atomic;
 template<typename T>
 using atomic T = std::atomic<T>;
 \end{lstlisting}
-\subsection{Qualifier alias}
-To make the qualifiers more powerful, two things would be possible: inheritance and compound. If not added explicitly they would however be possible via type alias. The using would allow shorter syntax for several qualifiers and could be done as a workaround via type alias as shown below.  
+This type alias would yield a scope problem though, which will be discussed in a later section (\ref{ana:scope}).
+\subsection{Removal qualifier (optional}
+Additionally to \lstinline {const} the \lstinline {mutable} keyword is given to override the \lstinline {const} qualification of a member-function. Though that is often considered bad design, this may also be useful for a custom qualifier. To not add a new keyword, I would propose the following syntax:
+\begin{lstlisting}
+qualifier const;
+delete qualifier mutable(const);
+\end{lstlisting}
+\subsection{Removal blocks (optional)}
+Additionally to the removal qualifier, I would propose qualified blocks. That is a qualifier can be removed inside a codeblock with the following syntax:
+\begin{lstlisting}
+void function(const int i& in)
+{
+	mutable(in)
+	{
+		in = 42;
+	}
+}
+\end{lstlisting}
+If the qualifier block does not get an argument, the \lstinline {this} pointer is used, if inside a member function, elsewise an error is the result. The main example in mind are thread-safety considerations. 
+\begin{lstlisting}
+void A::func() threadsafe
+{
+	locked
+	{
+		lock_guard<mutex> lock(_mtx);
+	}
+}
+\end{lstlisting}
+\subsection{Qualifier deletion (optional)}\label{prop:del}
+It may happen that several qualifiers mutually exclude each other (see for example \ref{prop:sign}). Then the combination should be deletable. Deleting a qualifier combination will yield an error, if the deleted combination is declared.
+\begin{lstlisting}
+qualifier q1;
+qualifier q2;
+delete q1 q2;
+\end{lstlisting}
+Since qualifiers can only be declared inside namespaces, this should not have any syntactically side effects.
+\subsection{Qualifier alias (optional)}
+To make the qualifiers more powerful, two things would be possible: inheritance and compound. If not added explicitly they would however be possible via type alias. The using would allow shorter syntax for several qualifiers and could be done as a workaround via the extended type alias as shown below.  
 \begin{lstlisting}
 qualifier cv;
 template<typename T>
@@ -70,88 +110,35 @@ If given the right syntax, this could be stated in a much shorter way:
 using qualifier cv = const volatile.
 \end{lstlisting}
 Thereby the qualifier cv becomes an alias here, so the compiler can remove it, what would require more work than the alias version.
-\subsection{Qualifier inheritance}
+\subsection{Qualifier inheritance (optional)}
 Another possible feature would be a primitive form of inheritance. Let's consider one defines two qualifiers for thread safety, i.e. read and write safety. The design of the libraries would then imply, that all write-safe actions are also read-safe. So by using the alias one could write:
 \begin{lstlisting}
-qualifier thread_read, thread_write; 
+qualifier thread_read, thread_write;
+template<typename T>
+using thread_write T = thread_read;
+\end{lstlisting}
+This syntax could be shortened in the following way:
+\begin{lstlisting}
+qualifier thread_read;
+qualifier thread_write : thread_read;
 \end{lstlisting} 
-% \subsection{Proposal}
-% The proposal is, to allow users to define own qualifiers. This is useful when different methods shall be used in the same program, but chosen at compile time. The primitive datatypes shall be defined by the user and compound datatypes shall be created automaticly if no definition is given, by applying the qualifier to each member.
-% q u a l i f i e r m y q u a l i f i e r ;
-% v o id s o me f u n c t io n (T) ;
-% // s e l e c t e d by t he r u l e s f o r o v e r lo a d in g
-% v o id s o me f u n c t io n ( m y q u a l i f i e r T) ;
-% c l a s s C
-% f
-% v o id some method ( . . . ) m y q u a l i f i e r ;
-% v o id some method ( . . . ) ;
-% g
-% C c ; c . some method ( . . . ) ; // c a l l s u n q u a l i f i e d
-% m y q u a l i f i e r c2 ; c2 . some method ( . . . ) ; // c a l l s q u a l i f i e d
-% \subsection{Defining qualified fundamental types}
-% As for now it is quite clear how a qualified class could be implemented, it has not been
-% explained how a qualified fundamental type could be defined.
-% As for the standard, the constraints are two:
-% • T and qualified T must have the same size and data alignment
-% • T∗ must be implicit convertible to qualified T∗
-% That is, qualified fundamental types cannot be freely defined directly, since the alignment
-% could be another one. Since C++11 introduced an alignof operator this can be assured using
-% a static assert . However the main problem is the conversion of the pointers, i.e. getting a
-% 6
-% reference.
-% For example:
-% q u a l i f i e d m y q u a l i f i e r ;
-% c l a s s s o me s t r u c t
-% f
-% i n t i ;
-% p u b lic :
-% // some methods
-% g ;
-% u s in g m y q u a l i f i e r i n t = s o me s t r u c t ;
-% Now for my qualified type I would need to have an implicit conversion from int to some struct.
-% The solution to this problem would to allow the cast operator be declared outside of a class.
-% If T1 shall be implicit convertible to T2, this would look like:
-% o p e r a t o r T2( T1∗ c o n s t ) f . . . g ;
-% o p e r a t o r T2( T1&) f . . . g ;
-% This could then be used for the needed pointer conversions, i.e.:
-% o p e r a t o r T2∗ c o n s t ( T1 ∗ c o n s t r h s )
-% f
-% r e t u r n r e i n t e r p r e t c a s t < T2 ∗ co ns t >( r h s ) ;
-% g
-% Now for a compund type this conversion shall be implicitly defined, so that only the primitives
-% need to have this cast operators. As an example we consider code which may or may not
-% need to be threadsafe. The conversion from Integral ∗ to atomic<Integral>∗ are assumed to exist
-% as well as those two having the same alignment.
-% q u a l i f i e r t h r e a d s a f e ;
-% / ∗ a l l i n t e g r a l s must be atomic f o r
-% b e e in g t h r e a d s a f e e x c e p t cha r and b o o l ∗ /
-% u s in g t h r e a d s a f e I n t e g r a l = atomic <I n t e g r a l >;
-% u s in g t h r e a d s a f e cha r = cha r ; // a l s o f o r uns ig ned
-% u s in g t h r e a d s a f e b o o l = b o o l ;
-% Now that would work by adding the operator atomic<Integral>∗ const (Integral∗ const).
-% 7
-% \subsection{Deleted types}	
-% At this point it is not defined, what happes if a qualifier is given and there is no specialisation
-% of the qualified version.
-% If the qualified conversion is defined, there needs to be a conversion function, so that yields
-% an error. But if I define a new qualfier, there is no need to define a qualified version for each
-% type, because maybe it doesn't exist. That is, there needs to be a void type with a specific
-% size, which just does nothing. This types needs to be able to be instanciated, since it may
-% be interesting of using function overloading depending on whether the type exists or not.
-% My proposal is using delete as an additional type qualifier. That is, if a qualifier for type T
-% is not defined, the compiler implicitly declares this special type like this:
-% q u a l i f i e r q u a l i f i e d ;
-% u s in g q u a l i f i e d T = d e l e t e q u a l i f i e d T;
-% The other qualifiers must be used, since else this would be ambigous:
-% q u a l i f i e r q1 , q2 ;
-% u s in g q1 T = d e l e t e q1 T;
-% u s in g q2 T = d e l e t e q2 T;
-% Now one would also construct a type trait for this purpose:
-% t emplat e <typename T, typename T2 = d e l e t e T >
-% u s in g i s d e l e t e d = f a l s e t y p e ;
-% t emplat e <typename T >
-% u s in g i s d e l e t e d < T,T > = t r u e t y p e ;
-% The only thing a deleted type can be used for is to take a pointer to it and get a reference.
-% As a note: I would have to called them virtual types because they exist in way, but this
-% would render an ambiguous declaration when returnign a pointer from a virtual function
-% (though no one should do that).
+Multiple inheritance would of course be possible also.
+\subsection{Qualifiers as template parameters (optional)}
+If more qualifiers are available, it seems quite obvious, that it could be useful to allow them as template parameters. The syntax would like this:
+\begin{lstlisting}
+template<qualifier Q>
+struct A {Q int i= 42;};
+\end{lstlisting}
+\subsection{Signed and unsigned (optional)} \label{prop:sign}
+Since the \lstinline{signed} and \lstinline{unsigned} keywords fulfill the criteria of the qualifiers\footnote{size and alignment, see N4296 3.9.)} for an integer, they could also be used as qualifiers. The usage of that might seem small, but consider a class which wraps around a numerical value, e.g. a fixpoint class or one for units\footnote{for example boost.units}. There the syntax makes a lot of sense and would allow much easier syntax regarding the conversions.\\
+As described in \ref{prop:del} a qualifier deletion would be possible and should be intrinsic for those two keywords.\\
+The downside to this would however be the elemination of currently valid code:
+\begin{lstlisting}
+unsigned u = 42u;//unsigned int
+signed s = -1; //signed int
+\end{lstlisting}
+Another solution, without breaking the code, would be to take int as the standard-type for a sort-of qualifier-declaration. That is:
+\begin{lstlisting}
+const c = 42; //const int
+\end{lstlisting}
+I for one, do not consider the declaration of \lstinline {int} via \lstinline {signed} as good style, and would suppose, that it is only used as a convenient template-parameter. That however would be still possible, if qualifiers can be template parameters, so I would promote breaking code.
